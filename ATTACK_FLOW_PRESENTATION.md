@@ -169,7 +169,7 @@ graph LR
 - Демонстрація Defense in Depth principles
 - Практичне розуміння OT security
 - Hands-on досвід з OCPP протоколом
-- Red Team / Blue Team scenario
+- Red Team scenario
 
 ---
 
