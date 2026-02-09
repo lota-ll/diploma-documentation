@@ -2,8 +2,7 @@
 
 ## Сценарій атаки: Від RCE до зупинки електрозаправки
 
-**Версія:** 3.0 (Виправлено та покращено)  
-**Дата:** 9 лютого 2026  
+
 **Мета:** Демонстрація повного ланцюжка атаки від web exploitation до physical impact на OT інфраструктуру
 
 ---
@@ -784,7 +783,4 @@ Real-world impact: Charging station stopped, customer affected.
 
 ---
 
-**Дата створення:** 9 лютого 2026  
-**Версія:** 3.0  
-**Автор:** Claude Assistant  
-**Призначення:** Дипломна робота - Cyber Range для EV Charging Infrastructure Security
+

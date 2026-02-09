@@ -1,6 +1,6 @@
 # EcoCharge Cyber Range - Network Topology (SHORT)
 
-**Версія:** 3.0-short | **Дата:** 9 лютого 2026
+**Версія:** short
 
 ---
 

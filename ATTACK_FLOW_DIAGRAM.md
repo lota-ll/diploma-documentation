@@ -1,7 +1,6 @@
 # EcoCharge Attack Flow - Візуальна Діаграма
 
-**Призначення:** Презентація для наукового керівника  
-**Формат:** Mermaid діаграма (рендериться в GitHub, Obsidian, VS Code)
+Повна візуальна діаграма Attack Flow
 
 ---
 
@@ -240,32 +239,5 @@ graph BT
 
 ---
 
-## Технічна інформація
 
-**Автор:** Claude Assistant  
-**Дата:** 9 лютого 2026  
-**Призначення:** Дипломна робота - Cyber Range для захисту інфраструктури електрозаправок  
-**Формат:** Mermaid.js (сумісно з GitHub, GitLab, Obsidian, VS Code)
-
-### Як використовувати:
-
-1. **GitHub/GitLab:** Скопіювати мермаїд блоки в .md файл - автоматично рендеряться
-2. **PowerPoint:** Використати [Mermaid Chart](https://www.mermaidchart.com/) для експорту в PNG/SVG
-3. **LaTeX:** Конвертувати в PDF через pandoc або mermaid-cli
-4. **Презентація:** Імпортувати SVG у PowerPoint/Google Slides
-
-### Команди для експорту:
-
-```bash
-# Встановити mermaid-cli
-npm install -g @mermaid-js/mermaid-cli
-
-# Конвертувати в PNG (висока якість)
-mmdc -i attack_flow_diagram.md -o attack_flow.png -w 2400 -H 1800 -b transparent
-
-# Конвертувати в SVG (векторна графіка)
-mmdc -i attack_flow_diagram.md -o attack_flow.svg -b transparent
-
-# Конвертувати в PDF
-mmdc -i attack_flow_diagram.md -o attack_flow.pdf
 ```
