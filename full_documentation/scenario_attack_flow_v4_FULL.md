@@ -16,59 +16,59 @@
 ```mermaid
 sequenceDiagram
     autonumber
-    participant A as 👤 Attacker<br/>Kali Linux
-    participant W as 🖥️ Web Server<br/>(.250.50)
-    participant API as ⚙️ API Gateway<br/>(.100.20)
-    participant J as 🔑 Jump Host<br/>(.100.40)
-    participant G as 📊 Grafana<br/>(.100.30)
-    participant CSMS as 💾 CitrineOS CSMS<br/>(.20.20)
+    participant A as Attacker<br/>Kali Linux
+    participant W as Web Server<br/>192.168.250.50
+    participant API as API Gateway<br/>192.168.100.20
+    participant J as Jump Host<br/>192.168.100.40
+    participant G as Grafana<br/>192.168.100.30
+    participant CSMS as CitrineOS CSMS<br/>192.168.20.20
 
-    Note over A,W: 🎯 PHASE 1: Initial Access (Command Injection)
-    A->>W: Discovery: /api/qr?format=pdf
+    Note over A,W: PHASE 1 - Initial Access via Command Injection
+    A->>W: GET /api/qr with invalid format
     W-->>A: Debug info disclosure
-    A->>W: Exploit: /api/qr?station=;id
-    W-->>A: 🐚 Command output (www-data)
-    Note right of A: FLAG #1:<br/>FLAG{qr_c0mm4nd_1nj3ct10n}
+    A->>W: Command Injection payload
+    W-->>A: RCE as www-data
+    Note right of A: FLAG 1
     
     A->>W: Reverse shell payload
-    W-->>A: 🐚 Shell access (www-data)
+    W-->>A: Shell access
     
     A->>W: PrivEsc via backup.js
-    W-->>A: 🔓 Root Access
-    Note right of A: FLAG #2:<br/>FLAG{pr1v3sc_b4ckup_sh3ll}
+    W-->>A: Root Access
+    Note right of A: FLAG 2
     
-    A->>W: Read .env & SSH keys
-    W-->>A: 🔑 API_KEY + id_jumphost
-    Note right of A: FLAG #3:<br/>FLAG{cr3d5_1n_3nv_f1l3}
+    A->>W: Read .env and SSH keys
+    W-->>A: API_KEY + id_jumphost
+    Note right of A: FLAG 3
 
-    Note over A,API: 🎯 PHASE 2: Lateral Movement (DMZ)
+    Note over A,API: PHASE 2 - Lateral Movement in DMZ
     A->>API: GET /api/v1/internal/config
-    API-->>A: 📄 Network topology leak
-    Note right of A: FLAG #4:<br/>FLAG{4p1_1nf0_d1scl0sur3}
+    API-->>A: Network topology leak
+    Note right of A: FLAG 4
     
     A->>J: SSH with stolen key
-    J-->>A: 🔐 Shell access (operator)
-    Note right of A: FLAG #5:<br/>FLAG{jump_h0st_p1v0t}
+    J-->>A: Shell access as operator
+    Note right of A: FLAG 5
 
-    Note over A,G: 🎯 PHASE 3: Internal Reconnaissance
-    A->>J: SSH tunnel to Grafana :3000
-    A->>G: Login (admin:admin)
-    G-->>A: 📊 Dashboard + Internal IPs
-    Note right of A: FLAG #6:<br/>FLAG{gr4f4n4_d3f4ult_cr3ds}
+    Note over A,G: PHASE 3 - Internal Reconnaissance (Optional)
+    A->>J: SSH tunnel to Grafana
+    A->>G: Login with default creds
+    G-->>A: Dashboard and Internal IPs
+    Note right of A: FLAG 6
 
-    Note over A,CSMS: 🎯 PHASE 4: CSMS Compromise (CVE-2025-55182)
+    Note over A,CSMS: PHASE 4 - CSMS Compromise via CVE-2025-55182
     A->>J: Access CitrineOS UI
-    A->>CSMS: Exploit CVE-2025-55182 (React2Shell)
-    CSMS-->>A: 🐚 RCE on CSMS container
-    Note right of A: FLAG #7:<br/>FLAG{r34ct2sh3ll_csms_pwn3d}
+    A->>CSMS: Exploit React2Shell RCE
+    CSMS-->>A: RCE on CSMS container
+    Note right of A: FLAG 7
     
-    A->>CSMS: Read /proc/1/environ
-    CSMS-->>A: 🔑 HASURA_ADMIN_SECRET
-    Note right of A: FLAG #8:<br/>FLAG{h4sur4_s3cr3t_l34k3d}
+    A->>CSMS: Read environment variables
+    CSMS-->>A: HASURA_ADMIN_SECRET
+    Note right of A: FLAG 8
     
     A->>CSMS: GraphQL query with admin secret
-    CSMS-->>A: 🗄️ Full database access
-    Note right of A: FLAG #9 (FINAL):<br/>FLAG{full_csms_c0mpr0m1s3}
+    CSMS-->>A: Full database access
+    Note right of A: FLAG 9 - FINAL
 ```
 
 ---
