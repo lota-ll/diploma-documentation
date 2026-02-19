@@ -1,31 +1,9 @@
-# EcoCharge CTF - Scenario Documentation v4
+# EcoCharge CTF - Scenario Documentation
 
 ## Overview
 
 This repository contains documentation for the EcoCharge CTF (Capture The Flag) scenario - a cybersecurity training environment simulating attacks on Electric Vehicle Charging Station Management Systems (CSMS).
 
-## Version 4.0 Changes
-
-### Major Changes from v3:
-1. **Initial Access Vector Changed:**
-   - v3: CVE-2025-55182 (React2Shell) on Web Server
-   - v4: CWE-78 Command Injection in QR Generator endpoint
-
-2. **CVE-2025-55182 Moved to CSMS:**
-   - Now used for final compromise of CitrineOS CSMS
-   - More realistic: internal system with outdated dependencies
-
-3. **Web Server Stack Updated:**
-   - v3: Next.js 15.x + React 19.x (vulnerable)
-   - v4: Next.js 14.2.5 + React 18.3.1 (patched)
-
-4. **Attack Flow Refined:**
-   - Clearer discovery path for Command Injection
-   - Better documentation of CVE-2025-55182 exploitation
-
-5. **OCPP Sniffing Removed:**
-   - Temporarily removed from scenario
-   - May be added as optional bonus flag
 
 ## Documentation Structure
 
